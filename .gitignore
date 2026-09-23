@@ -3,5 +3,5 @@ dist/
 .env
 .env.*
 !.env.example
-data/raw/
 .DS_Store
+src/generated/
