@@ -22,7 +22,7 @@ Both `dev` and `build` first run `scripts/build-data.ts`, which combines the sea
 
 To download games yourself, copy `.env.example` to `.env`, add a free API key from https://collegefootballdata.com/key, and run `bun run fetch-data` for the current season or `bun run fetch-data 2014-2026` for a range. The script keeps completed games involving at least one FBS team, labels each team with its conference as of that game, and groups FCS opponents together.
 
-During the season, `.github/workflows/refresh-data.yml` runs on Sunday and Wednesday mornings. It fetches the current season, commits any new results, and redeploys the site. It reads the key from the `CFBD_API_KEY` repository secret (`gh secret set CFBD_API_KEY`), and you can also run it from the Actions tab with a season range to backfill. GitHub pauses scheduled workflows in repositories with no activity for 60 days, so if updates stop at the start of a season, re-enable the workflow in the Actions tab.
+During the season, `.github/workflows/refresh-data.yml` runs every morning. It fetches the current season, commits any new results, and redeploys the site. It reads the key from the `CFBD_API_KEY` repository secret (`gh secret set CFBD_API_KEY`), and you can also run it from the Actions tab with a season range to backfill. GitHub pauses scheduled workflows in repositories with no activity for 60 days, so if updates stop at the start of a season, re-enable the workflow in the Actions tab.
 
 ## Deployment
 
