@@ -1,0 +1,21 @@
+{
+  "name": "conference-battle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.html",
+    "build": "bun build src/index.html --outdir dist --minify",
+    "preview": "bunx serve dist",
+    "fetch-data": "bun scripts/fetch-games.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "alpinejs": "^3.17.4"
+  },
+  "devDependencies": {
+    "@types/alpinejs": "^3.13.11",
+    "@types/bun": "^1.4.2",
+    "typescript": "^5.9.3"
+  }
+}
