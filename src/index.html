@@ -4,7 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Conference Battle</title>
-    <meta name="description" content="How FBS conferences have fared against each other, game by game." />
+    <meta name="description" content="Every game between two FBS conferences, rolled up to the league level. See who wins when they meet and which games built the record." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Conference Battle" />
+    <meta property="og:description" content="Every game between two FBS conferences, rolled up to the league level." />
+    <meta property="og:url" content="https://cray305.github.io/conference-battle/" />
+    <meta property="og:image" content="https://cray305.github.io/conference-battle/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./main.ts"></script>
     <!--
@@ -14,9 +26,237 @@
     -->
   </head>
   <body>
-    <main x-data="app">
-      <h1>Conference Battle</h1>
-      <p x-text="message"></p>
-    </main>
+    <div class="wrap" x-data="app">
+      <header class="masthead">
+        <div class="kicker">
+          <span>FBS / Conference vs. conference</span>
+          <svg viewBox="0 0 220 10" preserveAspectRatio="none" aria-hidden="true"><path d="M1 5H219M6 1 1 5l5 4M214 1l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
+          <span class="tag" x-show="updated" x-cloak>Games through <span x-text="updated"></span></span>
+        </div>
+        <h1>Conference Battle</h1>
+        <p class="dek">Every game between two FBS conferences, <span class="hl r">rolled up to the league level.</span> Pick a cell to see <span class="hl b">who wins when they meet,</span> and <span class="hl g">which games built the record.</span></p>
+        <svg class="ball" viewBox="0 0 160 100" aria-hidden="true">
+          <path d="M8 50C30 12 130 12 152 50 130 88 30 88 8 50Z" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round" />
+          <path d="M50 50H110M62 40v20M74 40v20M86 40v20M98 40v20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" />
+        </svg>
+      </header>
+
+      <div class="hatch" aria-hidden="true"></div>
+
+      <div class="controls" :class="{ open: controlsOpen }">
+        <button type="button" class="controls-toggle" @click="controlsOpen = !controlsOpen" :aria-expanded="controlsOpen" aria-controls="filters confpick">
+          <span class="label">Filters</span><span class="sum" x-text="summary"></span>
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" /></svg>
+        </button>
+        <form class="filters" id="filters" aria-label="Filters" @submit.prevent>
+          <label class="field"><span class="label">Seasons</span>
+            <span class="range">
+              <select aria-label="First season" x-model.number="from">
+                <template x-for="y in seasons" :key="y"><option :value="y" :selected="y === from" x-text="y"></option></template>
+              </select>–<select aria-label="Last season" x-model.number="to">
+                <template x-for="y in seasons" :key="y"><option :value="y" :selected="y === to" x-text="y"></option></template>
+              </select>
+            </span>
+          </label>
+          <fieldset>
+            <legend class="label">Games</legend>
+            <div class="seg">
+              <input type="radio" name="phase" id="ph-all" value="all" x-model="phase" /><label for="ph-all">All</label>
+              <input type="radio" name="phase" id="ph-reg" value="reg" x-model="phase" /><label for="ph-reg">Regular season</label>
+              <input type="radio" name="phase" id="ph-post" value="post" x-model="phase" /><label for="ph-post">Bowls &amp; CFP</label>
+            </div>
+          </fieldset>
+          <label class="field"><span class="label">Membership</span>
+            <select x-model="membership">
+              <option value="then">As of each game</option>
+              <option value="now" x-text="`Current (${last || 'today'})`">Current</option>
+            </select>
+          </label>
+        </form>
+
+        <fieldset class="confpick" id="confpick">
+          <legend class="label">Conferences</legend>
+          <div class="presets">
+            <template x-for="k in presets" :key="k">
+              <button type="button" :aria-pressed="activePreset === k" @click="applyPreset(k)" x-text="presetLabel(k)"></button>
+            </template>
+          </div>
+          <div class="chips">
+            <template x-for="c in CONFS" :key="c.id">
+              <button type="button" :aria-pressed="isOn(c.id)" :aria-disabled="isLocked(c.id)" :title="chipTitle(c)" @click="toggleConf(c.id)" x-text="c.id"></button>
+            </template>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="status" x-show="status !== 'ready'" role="status">
+        <div class="skeleton" aria-hidden="true" x-show="status === 'loading'"></div>
+        <p x-show="status === 'loading'">Loading games…</p>
+        <p x-show="status === 'error'" x-cloak>The game data didn't load. Refresh the page to try again.</p>
+      </div>
+
+      <template x-if="status === 'ready'">
+        <div class="board">
+          <div class="picker">
+            <label><span class="label">Conference</span>
+              <select @change="pickA($event.target.value)">
+                <template x-for="k in shown" :key="k"><option :value="k" :selected="k === selected[0]" x-text="name(k)"></option></template>
+              </select>
+            </label>
+            <svg viewBox="0 0 30 10" aria-hidden="true"><path d="M1 5H29M5 1 1 5l4 4M25 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
+            <label><span class="label">Opponent</span>
+              <select @change="pickB($event.target.value)">
+                <template x-for="k in opponentsOf(selected[0])" :key="k"><option :value="k" :selected="k === selected[1]" x-text="name(k)"></option></template>
+              </select>
+            </label>
+          </div>
+
+          <section class="matrix-sec" :class="{ focused: focus !== null }" aria-labelledby="matrix-h">
+            <div class="section-head">
+              <h2 id="matrix-h">Head-to-head</h2>
+              <p class="note desk-only">Row conference's record against the column conference, strongest conferences first. FCS opponents are grouped into one row.</p>
+              <p class="note phone-only">Tap a square for the matchup, or a conference name for its full list.</p>
+            </div>
+            <div class="matrix-scroll">
+              <table class="matrix" @pointerleave="leaveCell()">
+                <thead>
+                  <tr>
+                    <th class="corner" scope="col">Row vs. column</th>
+                    <template x-for="j in shown" :key="j">
+                      <th scope="col" :class="headClass(j)" :title="j === FCS ? 'All FCS opponents' : CONFS[j].name" x-text="CONFS[j].id"></th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="i in shown" :key="i">
+                    <tr>
+                      <th scope="row" :class="rowHeadClass(i)">
+                        <button type="button" class="rowbtn" :tabindex="isPhone ? 0 : -1" @click="openFocus(i)"><span class="full" x-text="rowLabel(i)"></span><span class="abbr" x-text="CONFS[i].id"></span></button>
+                        <small x-text="rowTotal(i)"></small>
+                      </th>
+                      <template x-for="j in shown" :key="j">
+                        <td class="cell" :class="cellClass(i, j)" :tabindex="cellTab(i, j)" :aria-label="cellLabel(i, j)"
+                          @click="select(i, j)" @keydown.enter.prevent="select(i, j)" @keydown.space.prevent="select(i, j)"
+                          @pointerenter="enterCell($event, i, j)" @pointermove="moveTip($event)" @pointerleave="leaveCell()"
+                        ><span x-text="cellText(i, j)"></span><span class="pct" x-text="cellPct(i, j)"></span></td>
+                      </template>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="focus">
+              <div class="focus-head">
+                <button type="button" @click="focus = null">← Grid</button>
+                <label><span class="label">Conference vs. everyone</span>
+                  <select @change="setFocus($event.target.value)">
+                    <template x-for="k in shown" :key="k"><option :value="k" :selected="k === focus" x-text="name(k)"></option></template>
+                  </select>
+                </label>
+              </div>
+              <p class="focus-sum">
+                <b x-text="focusSummary.total"></b> (<span x-text="focusSummary.pct"></span>) against these <span x-text="focusSummary.count"></span> opponents<template x-if="focusSummary.best"><span> · best vs <b x-text="focusSummary.best"></b>, worst vs <b x-text="focusSummary.worst"></b></span></template>
+              </p>
+              <ol>
+                <template x-for="row in focusRows" :key="row.j">
+                  <li :class="{ none: !row.played }">
+                    <button type="button" :disabled="!row.played" :aria-current="row.current" :aria-label="row.label" @click="select(focus, row.j)">
+                      <i class="sw" :class="row.sw"></i><span class="nm" x-text="row.name"></span><span x-text="row.wl"></span><span class="pc" x-text="row.pct"></span>
+                      <span class="pctbar" aria-hidden="true" x-show="row.played"><i :style="{ width: row.width }"></i></span>
+                    </button>
+                  </li>
+                </template>
+              </ol>
+            </div>
+
+            <div class="legend">
+              <div class="bins" aria-label="Win percentage of the row conference">
+                <span class="b-l2">&lt;.350</span><span class="b-l1">.350</span><span class="b-0">.500</span><span class="b-w1">.550</span><span class="b-w2">.650+</span>
+              </div>
+              <span class="thin-key"><i></i>Fewer than 4 games</span>
+            </div>
+            <p class="readout"><i class="sw" :class="readout.sw" x-show="readout.sw"></i><span x-text="readout.text"></span><a href="#detail">Matchup ↓</a></p>
+          </section>
+
+          <aside class="panel" id="detail" aria-live="polite">
+            <div class="label"><span>Selected matchup</span><span x-text="detail.range"></span></div>
+            <h3 class="versus"><span x-text="detail.a"></span><svg viewBox="0 0 38 10" aria-label="versus"><path d="M1 5H37M5 1 1 5l4 4M33 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg><span x-text="detail.b"></span></h3>
+            <div class="bigrec"><strong x-text="detail.wl"></strong><em x-text="detail.pct"></em></div>
+            <div class="tug" aria-hidden="true">
+              <div class="tug-bar"><i class="w" :style="{ width: detail.tug }"></i><i class="l"></i></div>
+              <div class="tug-labels"><span x-text="`${detail.aId} wins`"></span><span x-text="`${detail.bId} wins`"></span></div>
+            </div>
+            <p class="verdict" x-text="detail.verdict"></p>
+            <div class="splits">
+              <div><span class="label">Regular</span><b x-text="detail.reg"></b></div>
+              <div><span class="label">Bowls/CFP</span><b x-text="detail.post"></b></div>
+              <div><span class="label">Last 5</span><b x-text="detail.last5"></b></div>
+            </div>
+            <div class="agate">
+              <span class="label">Most recent meetings</span>
+              <ol>
+                <template x-for="g in detail.recent" :key="g.k">
+                  <li><span class="yr" x-text="g.year"></span><span><span class="w" x-text="g.winner"></span>, <span class="l" x-text="g.loser"></span></span><span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span></li>
+                </template>
+                <li x-show="!detail.recent.length"><span></span><span class="l">No games</span><span></span></li>
+              </ol>
+            </div>
+          </aside>
+        </div>
+      </template>
+
+      <template x-if="status === 'ready'">
+        <section aria-labelledby="stand-h">
+          <div class="section-head">
+            <h2 id="stand-h">Non-conference standings</h2>
+            <p class="note" x-text="standings.note"></p>
+          </div>
+          <div class="standings-scroll">
+            <table class="standings">
+              <thead>
+                <tr><th>#</th><th>Conference</th><th>W–L</th><th>Pct</th><th></th><th>Bowls/CFP</th><th x-show="standings.fcsOn">vs FCS</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, k) in standings.rows" :key="row.i">
+                  <tr>
+                    <td class="rk" x-text="k + 1"></td>
+                    <td class="name"><span x-text="row.name"></span><small x-text="row.tier"></small></td>
+                    <td x-text="row.wl"></td>
+                    <td x-text="row.pct"></td>
+                    <td class="barcell"><div class="pctbar" role="img" :aria-label="`Win percentage ${row.pct}`"><i :style="{ width: row.bar }"></i></div></td>
+                    <td x-text="row.post"></td>
+                    <td x-show="standings.fcsOn" x-text="row.fcs"></td>
+                  </tr>
+                </template>
+                <tr x-show="!standings.rows.length"><td colspan="7" class="name">Select at least one FBS conference to rank.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </template>
+
+      <section aria-labelledby="rules-h">
+        <div class="section-head"><h2 id="rules-h">How we count</h2></div>
+        <div class="rules">
+          <div><h3>Membership</h3><p>Each game counts for the conferences both teams belonged to that season. Texas's 2023 games count for the Big 12, and its 2024 games count for the SEC. Switch to current membership to regroup every game by where teams play today.</p></div>
+          <div><h3>Postseason</h3><p>Bowl and College Football Playoff games count and can be filtered on their own. Conference title games are played between members of the same conference, so they never appear.</p></div>
+          <div><h3>FCS</h3><p>Every FCS program is grouped into one opponent. Hide the FCS chip to leave those games out of every total. Games against Division II and III teams aren't counted.</p></div>
+          <div><h3>Independents</h3><p>Notre Dame, UConn, and other independents share one row. Games between two independents aren't counted.</p></div>
+          <div><h3>Results</h3><p>Games count as played on the field. Wins the NCAA later vacated still count, and home, away, and neutral-site games are weighted the same.</p></div>
+          <div><h3>Small samples</h3><p>Matchups with fewer than four games are hatched in the matrix. Treat those records as anecdotes, not trends.</p></div>
+        </div>
+      </section>
+
+      <div class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <footer>
+        <span>Data: <a href="https://collegefootballdata.com">CollegeFootballData.com</a>, <span x-text="first && `${first}–${last}`"></span> seasons</span>
+        <a href="https://github.com/Cray305/conference-battle">Source on GitHub</a>
+      </footer>
+
+      <div class="tip" x-ref="tip" x-show="tip" x-cloak :style="{ left: `${tipX}px`, top: `${tipY}px` }">
+        <b x-text="tip?.a"></b> vs <b x-text="tip?.b"></b><br /><span x-text="tip?.line"></span><br /><span x-text="tip?.post"></span>
+      </div>
+    </div>
   </body>
 </html>

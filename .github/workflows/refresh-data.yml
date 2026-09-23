@@ -1,0 +1,57 @@
+name: Refresh game data
+
+# Pulls new results from CollegeFootballData during the season, commits them,
+# and redeploys the site. Run it by hand with a range like 2014-2026 to
+# backfill older seasons.
+on:
+  schedule:
+    # 12:00 UTC on Sundays and Wednesdays, August through January.
+    - cron: "0 12 * 8-12,1 0,3"
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "A season (2025) or range (2014-2026). Leave blank for the current season."
+        required: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Fetch games
+        run: bun run fetch-data $SEASONS
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          SEASONS: ${{ inputs.seasons }}
+      - name: Check the data still builds
+        run: bun run build-data
+      - name: Commit changes
+        id: commit
+        run: |
+          git add data/seasons
+          if git diff --cached --quiet; then
+            echo "No new games."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update game data"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      # Pushes made with GITHUB_TOKEN don't start other workflows, so start the deploy directly.
+      - name: Deploy
+        if: steps.commit.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        run: gh workflow run deploy.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
