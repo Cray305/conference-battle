@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.html",
-    "build": "bun build src/index.html --outdir dist --minify",
+    "dev": "bun run build-data && bun --hot src/index.html",
+    "build": "bun run build-data && bun build src/index.html --outdir dist --minify && cp -R public/. dist/",
     "preview": "bunx serve dist",
     "fetch-data": "bun scripts/fetch-games.ts",
+    "build-data": "bun scripts/build-data.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
