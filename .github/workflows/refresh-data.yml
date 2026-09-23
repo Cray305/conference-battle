@@ -5,8 +5,8 @@ name: Refresh game data
 # backfill older seasons.
 on:
   schedule:
-    # 12:00 UTC on Sundays and Wednesdays, August through January.
-    - cron: "0 12 * 8-12,1 0,3"
+    # Every day at 12:00 UTC, August through January.
+    - cron: "0 12 * 8-12,1 *"
   workflow_dispatch:
     inputs:
       seasons:
