@@ -258,5 +258,6 @@
 {"id":401860888,"date":"2026-09-20","phase":0,"home":"San José State","homeConf":"MW","homePts":10,"away":"Fresno State","awayConf":"P12","awayPts":26},
 {"id":401862775,"date":"2026-09-20","phase":0,"home":"Tulsa","homeConf":"AAC","homePts":42,"away":"East Texas A&M","awayConf":"FCS","awayPts":0},
 {"id":401862776,"date":"2026-09-20","phase":0,"home":"Louisiana","homeConf":"SBC","homePts":21,"away":"UAB","awayConf":"AAC","awayPts":14},
-{"id":401864507,"date":"2026-09-20","phase":0,"home":"Sacramento State","homeConf":"MAC","homePts":10,"away":"North Dakota State","awayConf":"MW","awayPts":31}
+{"id":401864507,"date":"2026-09-20","phase":0,"home":"Sacramento State","homeConf":"MAC","homePts":10,"away":"North Dakota State","awayConf":"MW","awayPts":31},
+{"id":401869941,"date":"2026-09-24","phase":0,"home":"Coastal Carolina","homeConf":"SBC","homePts":17,"away":"Liberty","awayConf":"CUSA","awayPts":34}
 ]
