@@ -6,6 +6,7 @@
 // through the January bowls. Requires CFBD_API_KEY (Bun loads .env automatically).
 
 import { toSeasonGames, type CfbdGame } from "../src/lib/data.ts";
+import { currentSeason } from "../src/lib/season.ts";
 
 const API = "https://api.collegefootballdata.com";
 
@@ -13,10 +14,6 @@ const key = process.env.CFBD_API_KEY;
 if (!key) {
   console.error("CFBD_API_KEY is not set. Copy .env.example to .env and add your key.");
   process.exit(1);
-}
-
-function currentSeason(now = new Date()): number {
-  return now.getUTCMonth() < 7 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
 }
 
 function parseYears(arg: string | undefined): number[] {

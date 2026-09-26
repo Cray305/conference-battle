@@ -3,6 +3,7 @@ import gamesUrl from "./generated/games.json" with { type: "file" };
 import { CONFS, FCS, PRESETS, PRESET_LABELS, type ConfId } from "./lib/conferences.ts";
 import { tally, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
 import { bin, fmtPct, fmtWL, THIN, winPct } from "./lib/format.ts";
+import { currentSeason } from "./lib/season.ts";
 
 type PresetKey = keyof typeof PRESETS;
 type Pair = [number, number];
@@ -57,9 +58,10 @@ Alpine.data("app", () => ({
       this.status = "error";
       return;
     }
-    // Open on the latest season; the selects still reach back to the first.
+    // Open on the season in progress, kept within the years we have data for.
     this.first = ds.first;
-    this.last = this.from = this.to = ds.last;
+    this.last = ds.last;
+    this.from = this.to = Math.min(Math.max(currentSeason(), ds.first), ds.last);
     this.lastGame = ds.lastGame;
     this.recalc();
     this.readHash();
