@@ -57,8 +57,9 @@ Alpine.data("app", () => ({
       this.status = "error";
       return;
     }
-    this.first = this.from = ds.first;
-    this.last = this.to = ds.last;
+    // Open on the latest season; the selects still reach back to the first.
+    this.first = ds.first;
+    this.last = this.from = this.to = ds.last;
     this.lastGame = ds.lastGame;
     this.recalc();
     this.readHash();
@@ -123,7 +124,7 @@ Alpine.data("app", () => ({
     const phase = { all: "All games", reg: "Regular season", post: "Bowls & CFP" }[this.phase];
     const confs = this.activePreset ? PRESET_LABELS[this.activePreset] : `${this.visible.length} conferences`;
     const f = this.filters();
-    return `${f.from}–${f.to} · ${phase} · ${confs}`;
+    return `${f.from === f.to ? f.from : `${f.from}–${f.to}`} · ${phase} · ${confs}`;
   },
 
   // Selection ------------------------------------------------------------
