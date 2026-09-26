@@ -259,5 +259,10 @@
 {"id":401862775,"date":"2026-09-20","phase":0,"home":"Tulsa","homeConf":"AAC","homePts":42,"away":"East Texas A&M","awayConf":"FCS","awayPts":0},
 {"id":401862776,"date":"2026-09-20","phase":0,"home":"Louisiana","homeConf":"SBC","homePts":21,"away":"UAB","awayConf":"AAC","awayPts":14},
 {"id":401864507,"date":"2026-09-20","phase":0,"home":"Sacramento State","homeConf":"MAC","homePts":10,"away":"North Dakota State","awayConf":"MW","awayPts":31},
-{"id":401869941,"date":"2026-09-24","phase":0,"home":"Coastal Carolina","homeConf":"SBC","homePts":17,"away":"Liberty","awayConf":"CUSA","awayPts":34}
+{"id":401869941,"date":"2026-09-24","phase":0,"home":"Coastal Carolina","homeConf":"SBC","homePts":17,"away":"Liberty","awayConf":"CUSA","awayPts":34},
+{"id":401858468,"date":"2026-09-25","phase":0,"home":"Rutgers","homeConf":"B1G","homePts":58,"away":"Howard","awayConf":"FCS","awayPts":7},
+{"id":401862778,"date":"2026-09-25","phase":0,"home":"UAB","homeConf":"AAC","homePts":24,"away":"Navy","awayConf":"AAC","awayPts":20},
+{"id":401862779,"date":"2026-09-25","phase":0,"home":"Temple","homeConf":"AAC","homePts":17,"away":"Army","awayConf":"AAC","awayPts":21},
+{"id":401858234,"date":"2026-09-26","phase":0,"home":"California","homeConf":"ACC","homePts":10,"away":"Clemson","awayConf":"ACC","awayPts":24},
+{"id":401858461,"date":"2026-09-26","phase":0,"home":"Indiana","homeConf":"B1G","homePts":29,"away":"Northwestern","awayConf":"B1G","awayPts":23}
 ]
