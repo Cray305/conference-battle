@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { confIndex } from "./conferences.ts";
 import { buildDataset, tally, toSeasonGames, type CfbdGame, type Filters, type SeasonGame } from "./data.ts";
 import { bin, fmtPct } from "./format.ts";
+import { currentSeason } from "./season.ts";
 
 const cfbd = (over: Partial<CfbdGame>): CfbdGame => ({
   id: 1, season: 2023, seasonType: "regular", startDate: "2023-09-02T19:00:00.000Z", completed: true,
@@ -126,5 +127,14 @@ describe("format", () => {
 
   test("bin edges", () => {
     expect([0.65, 0.55, 0.5, 0.45, 0.35, 0.2].map(bin)).toEqual(["b-w2", "b-w1", "b-0", "b-l1", "b-l2", "b-l2"]);
+  });
+});
+
+describe("currentSeason", () => {
+  test("runs from August through the following July", () => {
+    expect(currentSeason(new Date(2026, 7, 1))).toBe(2026);
+    expect(currentSeason(new Date(2026, 11, 31))).toBe(2026);
+    expect(currentSeason(new Date(2027, 0, 12))).toBe(2026);
+    expect(currentSeason(new Date(2027, 6, 31))).toBe(2026);
   });
 });
