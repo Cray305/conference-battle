@@ -13,6 +13,10 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Apply a saved theme before first paint so the page doesn't flash.
+      try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+    </script>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -31,7 +35,13 @@
         <div class="kicker">
           <span>FBS / Conference vs. conference</span>
           <svg viewBox="0 0 220 10" preserveAspectRatio="none" aria-hidden="true"><path d="M1 5H219M6 1 1 5l5 4M214 1l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
-          <span class="tag" x-show="updated" x-cloak>Games through <span x-text="updated"></span></span>
+          <span class="kicker-end">
+            <span class="tag" x-show="updated" x-cloak>Games through <span x-text="updated"></span></span>
+            <button type="button" class="theme" id="theme" aria-label="Switch to dark mode" title="Switch to dark mode">
+              <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7Z" fill="currentColor" /></svg>
+              <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+            </button>
+          </span>
         </div>
         <h1>Conference Battle</h1>
         <p class="dek">Every game between two FBS conferences, <span class="hl r">rolled up to the league level.</span> Pick a cell to see <span class="hl b">who wins when they meet,</span> and <span class="hl g">which games built the record.</span></p>
