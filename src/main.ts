@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
 import gamesUrl from "./generated/games.json" with { type: "file" };
 import { CONFS, FCS, PRESETS, PRESET_LABELS, type ConfId } from "./lib/conferences.ts";
-import { tally, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
+import { tally, tallyTeam, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
 import { bin, fmtPct, fmtWL, THIN, winPct } from "./lib/format.ts";
 import { currentSeason } from "./lib/season.ts";
 
@@ -12,9 +12,16 @@ type Pair = [number, number];
 // game rows aren't wrapped in proxies. `rev` changes whenever they do.
 let ds: Dataset;
 let rec: Rec[][] = [];
+let teamRec: Rec[] = [];
+let teamName = "";
+
+/** Row index for the pinned team row; conference rows use their CONFS index. */
+const TEAM = -1;
 
 const phone = matchMedia("(max-width: 640px)");
-const name = (i: number) => (i === FCS ? "FCS" : CONFS[i]!.name);
+const name = (i: number) => (i === TEAM ? teamName : i === FCS ? "FCS" : CONFS[i]!.name);
+const abbr = (i: number) => (i === TEAM ? teamName : CONFS[i]!.id);
+const slug = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const hasGames = (r: WL) => r.w + r.l > 0;
 
 // Keep logic in typed components registered here; the HTML should only
@@ -23,9 +30,11 @@ const hasGames = (r: WL) => r.w + r.l > 0;
 Alpine.data("app", () => ({
   CONFS,
   FCS,
+  TEAM,
   presets: Object.keys(PRESETS) as PresetKey[],
   presetLabel: (k: PresetKey) => PRESET_LABELS[k],
   name,
+  abbr,
   fmtPct,
   fmtWL,
 
@@ -47,6 +56,9 @@ Alpine.data("app", () => ({
   tipY: 0,
   controlsOpen: false,
   isPhone: phone.matches,
+  team: null as number | null,
+  teamQuery: "",
+  teamList: [] as { i: number; name: string }[],
 
   async init() {
     phone.addEventListener("change", () => (this.isPhone = phone.matches));
@@ -63,12 +75,17 @@ Alpine.data("app", () => ({
     this.last = ds.last;
     this.from = this.to = Math.min(Math.max(currentSeason(), ds.first), ds.last);
     this.lastGame = ds.lastGame;
+    // FBS programs only: FCS teams' games against each other aren't in the data.
+    const fbs = new Set<number>();
+    for (const g of ds.games) { if (g[4] !== FCS) fbs.add(g[2]); if (g[5] !== FCS) fbs.add(g[3]); }
+    this.teamList = [...fbs].map((i) => ({ i, name: ds.teams[i]! })).sort((a, b) => a.name.localeCompare(b.name));
     this.recalc();
     this.readHash();
     this.status = "ready";
     for (const key of ["from", "to", "phase", "membership"] as const) this.$watch(key, () => this.recalc());
     this.$watch("visible", () => this.keepSelectionVisible());
     this.$watch("selected", () => this.writeHash());
+    this.$watch("team", () => this.writeHash());
     window.addEventListener("hashchange", () => this.readHash());
   },
 
@@ -81,6 +98,8 @@ Alpine.data("app", () => ({
 
   recalc() {
     rec = tally(ds, this.filters());
+    teamRec = this.team === null ? [] : tallyTeam(ds, this.filters(), this.team);
+    teamName = this.team === null ? "" : ds.teams[this.team]!;
     // Strongest conferences first, by record against the rest of FBS; FCS last.
     const vsFbs = (i: number) => rec[i]!.reduce((t, r, j) => (j === FCS ? t : { w: t.w + r.w, l: t.l + r.l }), { w: 0, l: 0 });
     this.order = CONFS.map((_, i) => i).filter((i) => i !== FCS).sort((a, b) => winPct(vsFbs(b)) - winPct(vsFbs(a))).concat(FCS);
@@ -90,7 +109,7 @@ Alpine.data("app", () => ({
 
   r(i: number, j: number): Rec {
     void this.rev;
-    return rec[i]![j]!;
+    return i === TEAM ? teamRec[j]! : rec[i]![j]!;
   },
 
   get seasons(): number[] {
@@ -99,6 +118,41 @@ Alpine.data("app", () => ({
 
   get shown(): number[] {
     return this.order.filter((i) => this.visible.includes(CONFS[i]!.id));
+  },
+
+  /** Matrix rows: the pinned team, if any, then the visible conferences. */
+  get rows(): number[] {
+    return this.team === null ? this.shown : [TEAM, ...this.shown];
+  },
+
+  // Team row ---------------------------------------------------------------
+
+  findTeam(q: string) {
+    const s = q.trim().toLowerCase();
+    return s ? this.teamList.find((t) => t.name.toLowerCase() === s) : undefined;
+  },
+  matchTeam() {
+    const t = this.findTeam(this.teamQuery);
+    if (t && t.i !== this.team) this.setTeam(t.i);
+    else if (!this.teamQuery.trim() && this.team !== null) this.clearTeam();
+  },
+  settleTeam() {
+    this.matchTeam();
+    this.teamQuery = this.team === null ? "" : ds.teams[this.team]!;
+  },
+  setTeam(i: number, opp?: number) {
+    this.team = i;
+    this.teamQuery = ds.teams[i]!;
+    this.recalc();
+    // Open on the conference the team has played most, which is usually its own.
+    const V = this.shown;
+    const most = [...V].sort((a, b) => this.r(TEAM, b).w + this.r(TEAM, b).l - (this.r(TEAM, a).w + this.r(TEAM, a).l))[0];
+    this.selected = [TEAM, opp !== undefined && V.includes(opp) ? opp : most ?? V[0]!];
+  },
+  clearTeam() {
+    this.team = null;
+    this.teamQuery = "";
+    this.recalc();
   },
 
   // Conference picker ----------------------------------------------------
@@ -126,7 +180,7 @@ Alpine.data("app", () => ({
     const phase = { all: "All games", reg: "Regular season", post: "Bowls & CFP" }[this.phase];
     const confs = this.activePreset ? PRESET_LABELS[this.activePreset] : `${this.visible.length} conferences`;
     const f = this.filters();
-    return `${f.from === f.to ? f.from : `${f.from}–${f.to}`} · ${phase} · ${confs}`;
+    return `${f.from === f.to ? f.from : `${f.from}–${f.to}`} · ${phase} · ${confs}${this.team === null ? "" : ` · ${ds.teams[this.team]}`}`;
   },
 
   // Selection ------------------------------------------------------------
@@ -134,10 +188,14 @@ Alpine.data("app", () => ({
   keepSelectionVisible() {
     const V = this.shown;
     const [a, b] = this.selected;
-    if (V.includes(a) && V.includes(b)) return;
+    if ((V.includes(a) || (a === TEAM && this.team !== null)) && V.includes(b)) return;
+    if (a === TEAM && this.team !== null && V.length) {
+      this.selected = [TEAM, V.find((j) => hasGames(this.r(TEAM, j))) ?? V[0]!];
+      return;
+    }
     const pair = V.flatMap((i) => V.filter((j) => j !== i && hasGames(this.r(i, j))).map((j): Pair => [i, j]))[0];
     this.selected = pair ?? [V[0]!, V[1]!];
-    if (this.focus !== null && !V.includes(this.focus)) this.focus = null;
+    if (this.focus !== null && !this.rows.includes(this.focus)) this.focus = null;
   },
   select(i: number, j: number) {
     if (i === j || !hasGames(this.r(i, j))) return;
@@ -157,15 +215,28 @@ Alpine.data("app", () => ({
     return this.shown.filter((k) => k !== i);
   },
 
+  // The hash is "sec-b1g" for a conference matchup, "texas.sec" for a team
+  // against a conference, or "sec-b1g.texas" with a team pinned elsewhere.
   writeHash() {
     const [a, b] = this.selected;
-    history.replaceState(null, "", `#${CONFS[a]!.id}-${CONFS[b]!.id}`.toLowerCase());
+    const team = this.team === null ? "" : slug(ds.teams[this.team]!);
+    const hash = a === TEAM ? `${team}.${CONFS[b]!.id}` : `${CONFS[a]!.id}-${CONFS[b]!.id}${team && `.${team}`}`;
+    history.replaceState(null, "", `#${hash.toLowerCase()}`);
   },
   readHash() {
-    const [a, b] = location.hash.slice(1).toUpperCase().split("-").map((id) => CONFS.findIndex((c) => c.id === id));
-    if (a === undefined || b === undefined || a < 0 || b < 0 || a === b) return;
-    for (const id of [CONFS[a]!.id, CONFS[b]!.id]) if (!this.isOn(id)) this.visible = [...this.visible, id];
-    this.selected = [a, b];
+    const conf = (id = "") => CONFS.findIndex((c) => c.id === id.toUpperCase());
+    const show = (i: number) => { if (!this.isOn(CONFS[i]!.id)) this.visible = [...this.visible, CONFS[i]!.id]; };
+    let pair: Pair | undefined, team: number | undefined, opp: number | undefined;
+    for (const part of location.hash.slice(1).split(".")) {
+      const [a, b] = part.split("-").map(conf);
+      if (a !== undefined && b !== undefined && a >= 0 && b >= 0 && a !== b && part.split("-").length === 2) pair = [a, b];
+      else if (conf(part) >= 0) opp = conf(part);
+      else team = this.teamList.find((t) => slug(t.name) === part)?.i ?? team;
+    }
+    if (pair) { pair.forEach(show); }
+    if (opp !== undefined) show(opp);
+    if (team !== undefined) this.setTeam(team, opp);
+    if (pair && (team === undefined || opp === undefined)) this.selected = pair;
   },
 
   // Matrix ---------------------------------------------------------------
@@ -203,11 +274,12 @@ Alpine.data("app", () => ({
   },
   cellLabel(i: number, j: number) {
     if (i === j) return `${name(i)} against itself`;
+    if (i === TEAM && !hasGames(this.r(i, j))) return `${name(i)} hasn't played ${name(j)}`;
     const x = this.r(i, j);
     return hasGames(x) ? `${name(i)} vs ${name(j)}: ${x.w} wins, ${x.l} losses` : `${name(i)} and ${name(j)} haven't played`;
   },
   rowLabel(i: number) {
-    return i === FCS ? "All FCS teams" : CONFS[i]!.name;
+    return i === TEAM ? teamName : i === FCS ? "All FCS teams" : CONFS[i]!.name;
   },
   rowTotal(i: number) {
     const t = this.shown.reduce((acc, j) => ({ w: acc.w + this.r(i, j).w, l: acc.l + this.r(i, j).l }), { w: 0, l: 0 });
@@ -282,7 +354,7 @@ Alpine.data("app", () => ({
     const [i, j] = this.selected, x = this.r(i, j);
     return {
       sw: hasGames(x) ? `${bin(winPct(x))}${x.w + x.l < THIN ? " thin" : ""}` : "",
-      text: `${CONFS[i]!.id} vs ${CONFS[j]!.id} · ${hasGames(x) ? `${fmtWL(x)} · ${fmtPct(x)}` : "No games"}`,
+      text: `${abbr(i)} vs ${abbr(j)} · ${hasGames(x) ? `${fmtWL(x)} · ${fmtPct(x)}` : "No games"}`,
     };
   },
 
@@ -291,18 +363,19 @@ Alpine.data("app", () => ({
   get detail() {
     const [i, j] = this.selected, x = this.r(i, j), n = x.w + x.l;
     const lead = x.w - x.l;
-    const verdict = !n ? "These conferences haven't met in the selected seasons."
+    const verdict = !n ? (i === TEAM ? `${name(i)} didn't play ${name(j)} in the selected seasons.` : "These conferences haven't met in the selected seasons.")
+      : i === TEAM ? `${name(i)} is ${fmtWL(x)} against ${name(j)} across ${n} game${n === 1 ? "" : "s"}.`
       : lead === 0 ? `The series is even over ${n} games.`
       : `${lead > 0 ? name(i) : name(j)} leads the series by ${Math.abs(lead)} game${Math.abs(lead) === 1 ? "" : "s"} across ${n} meetings.`;
     const rowWon = (k: number) => {
       const g = ds.games[k]!;
-      const homeIsRow = (this.membership === "now" ? ds.current[g[2]] : g[4]) === i;
+      const homeIsRow = i === TEAM ? g[2] === this.team : (this.membership === "now" ? ds.current[g[2]] : g[4]) === i;
       return homeIsRow === (g[6] > g[7]);
     };
     const last5 = x.games.slice(0, 5), w5 = last5.filter(rowWon).length;
     const f = this.filters();
     return {
-      a: name(i), b: name(j), aId: CONFS[i]!.id, bId: CONFS[j]!.id,
+      a: name(i), b: name(j), aId: abbr(i), bId: abbr(j),
       range: f.from === f.to ? `${f.from}` : `${f.from}–${f.to}`,
       wl: fmtWL(x), pct: fmtPct(x),
       tug: `${n ? winPct(x) * 100 : 50}%`,
