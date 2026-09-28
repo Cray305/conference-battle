@@ -44,7 +44,7 @@
           </span>
         </div>
         <h1>Conference Battle</h1>
-        <p class="dek">Every game between two FBS conferences, <span class="hl r">rolled up to the league level.</span> Pick a cell to see <span class="hl b">who wins when they meet,</span> and <span class="hl g">which games built the record.</span></p>
+        <p class="dek">Every game between two FBS conferences, rolled up to the league level.</p>
         <svg class="ball" viewBox="0 0 160 100" aria-hidden="true">
           <path d="M8 50C30 12 130 12 152 50 130 88 30 88 8 50Z" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round" />
           <path d="M50 50H110M62 40v20M74 40v20M86 40v20M98 40v20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" />
@@ -76,6 +76,16 @@
               <input type="radio" name="phase" id="ph-post" value="post" x-model="phase" /><label for="ph-post">Bowls &amp; CFP</label>
             </div>
           </fieldset>
+          <label class="field"><span class="label">Team</span>
+            <span class="teambox">
+              <input type="text" list="team-list" placeholder="Add a team" autocomplete="off" spellcheck="false"
+                x-model="teamQuery" @input="matchTeam()" @change="settleTeam()" @keydown.enter.prevent="settleTeam()" />
+              <button type="button" x-show="team !== null" x-cloak @click="clearTeam()" aria-label="Remove team" title="Remove team">×</button>
+            </span>
+            <datalist id="team-list">
+              <template x-for="t in teamList" :key="t.i"><option :value="t.name"></option></template>
+            </datalist>
+          </label>
           <label class="field"><span class="label">Membership</span>
             <select x-model="membership">
               <option value="then">As of each game</option>
@@ -110,7 +120,7 @@
           <div class="picker">
             <label><span class="label">Conference</span>
               <select @change="pickA($event.target.value)">
-                <template x-for="k in shown" :key="k"><option :value="k" :selected="k === selected[0]" x-text="name(k)"></option></template>
+                <template x-for="k in rows" :key="k"><option :value="k" :selected="k === selected[0]" x-text="name(k)"></option></template>
               </select>
             </label>
             <svg viewBox="0 0 30 10" aria-hidden="true"><path d="M1 5H29M5 1 1 5l4 4M25 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
@@ -124,7 +134,7 @@
           <section class="matrix-sec" :class="{ focused: focus !== null }" aria-labelledby="matrix-h">
             <div class="section-head">
               <h2 id="matrix-h">Head-to-head</h2>
-              <p class="note desk-only">Row conference's record against the column conference, strongest conferences first. FCS opponents are grouped into one row.</p>
+              <p class="note desk-only">Row conference's record against the column conference, strongest conferences first. FCS opponents are grouped into one row. Add a team to pin its record against each conference above the grid.</p>
               <p class="note phone-only">Tap a square for the matchup, or a conference name for its full list.</p>
             </div>
             <div class="matrix-scroll">
@@ -138,10 +148,10 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <template x-for="i in shown" :key="i">
-                    <tr>
+                  <template x-for="i in rows" :key="i">
+                    <tr :class="{ 'team-row': i === TEAM }">
                       <th scope="row" :class="rowHeadClass(i)">
-                        <button type="button" class="rowbtn" :tabindex="isPhone ? 0 : -1" @click="openFocus(i)"><span class="full" x-text="rowLabel(i)"></span><span class="abbr" x-text="CONFS[i].id"></span></button>
+                        <button type="button" class="rowbtn" :tabindex="isPhone ? 0 : -1" @click="openFocus(i)"><span class="full" x-text="rowLabel(i)"></span><span class="abbr" x-text="abbr(i)"></span></button>
                         <small x-text="rowTotal(i)"></small>
                       </th>
                       <template x-for="j in shown" :key="j">
@@ -161,7 +171,7 @@
                 <button type="button" @click="focus = null">← Grid</button>
                 <label><span class="label">Conference vs. everyone</span>
                   <select @change="setFocus($event.target.value)">
-                    <template x-for="k in shown" :key="k"><option :value="k" :selected="k === focus" x-text="name(k)"></option></template>
+                    <template x-for="k in rows" :key="k"><option :value="k" :selected="k === focus" x-text="name(k)"></option></template>
                   </select>
                 </label>
               </div>

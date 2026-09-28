@@ -101,8 +101,9 @@ export function buildDataset(seasons: Map<number, SeasonGame[]>): Dataset {
     const hc = CONF_INDEX.get(g.homeConf)!, ac = CONF_INDEX.get(g.awayConf)!;
     rows.push([season, g.phase, team(g.home, hc), team(g.away, ac), hc, ac, g.homePts, g.awayPts]);
   }
-  // Drop games that are conference games under both membership views; they never count.
-  const games = rows.filter((r) => r[4] !== r[5] || current[r[2]] !== current[r[3]]).reverse();
+  // Conference games stay in so a team's row can show its conference record;
+  // the conference matrix skips them in tally().
+  const games = rows.reverse();
 
   return {
     first: years[0]!,
@@ -129,23 +130,43 @@ export interface Filters {
   membership: "then" | "now";
 }
 
+const emptyRec = (): Rec => ({ w: 0, l: 0, reg: { w: 0, l: 0 }, post: { w: 0, l: 0 }, games: [] });
+
+const inFilters = (f: Filters, season: number, phase: Phase) =>
+  season >= f.from && season <= f.to && (f.phase === "reg" ? phase === 0 : f.phase === "post" ? phase !== 0 : true);
+
+function count(r: Rec, won: boolean, phase: Phase, k: number) {
+  const split = phase === 0 ? r.reg : r.post;
+  if (won) { r.w++; split.w++; } else { r.l++; split.l++; }
+  r.games.push(k);
+}
+
 /** Head-to-head records for every pair of conferences: rec[a][b] is a's record against b. */
 export function tally(ds: Dataset, f: Filters): Rec[][] {
   const n = CONFS.length;
-  const rec: Rec[][] = Array.from({ length: n }, () =>
-    Array.from({ length: n }, () => ({ w: 0, l: 0, reg: { w: 0, l: 0 }, post: { w: 0, l: 0 }, games: [] })));
+  const rec: Rec[][] = Array.from({ length: n }, () => Array.from({ length: n }, emptyRec));
   ds.games.forEach(([season, phase, home, away, hc, ac, hp, ap], k) => {
-    if (season < f.from || season > f.to) return;
-    if (f.phase === "reg" ? phase !== 0 : f.phase === "post" ? phase === 0 : false) return;
+    if (!inFilters(f, season, phase)) return;
     const a = f.membership === "now" ? ds.current[home]! : hc;
     const b = f.membership === "now" ? ds.current[away]! : ac;
     if (a === b || hp === ap) return;
-    const A = rec[a]![b]!, B = rec[b]![a]!;
-    const aWon = hp > ap;
-    const split = (r: Rec) => (phase === 0 ? r.reg : r.post);
-    if (aWon) { A.w++; B.l++; split(A).w++; split(B).l++; }
-    else { A.l++; B.w++; split(A).l++; split(B).w++; }
-    A.games.push(k); B.games.push(k);
+    count(rec[a]![b]!, hp > ap, phase, k);
+    count(rec[b]![a]!, ap > hp, phase, k);
+  });
+  return rec;
+}
+
+/**
+ * One team's record against every conference: rec[j] is the team's record against j.
+ * Games against its own conference count, so that cell is its conference record.
+ */
+export function tallyTeam(ds: Dataset, f: Filters, team: number): Rec[] {
+  const rec = CONFS.map(emptyRec);
+  ds.games.forEach(([season, phase, home, away, hc, ac, hp, ap], k) => {
+    if ((home !== team && away !== team) || hp === ap || !inFilters(f, season, phase)) return;
+    const isHome = home === team;
+    const opp = f.membership === "now" ? ds.current[isHome ? away : home]! : isHome ? ac : hc;
+    count(rec[opp]!, isHome === hp > ap, phase, k);
   });
   return rec;
 }
