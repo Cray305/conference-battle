@@ -1,6 +1,7 @@
 {
   "name": "conference-battle",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "bun run build-data && bun --hot src/index.html",
