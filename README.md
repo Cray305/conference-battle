@@ -2,7 +2,9 @@
 
 A web app showing how FBS conferences have fared against each other, with records aggregated at the conference level rather than by team. Game data comes from the [CollegeFootballData.com](https://collegefootballdata.com) API, and each game counts toward the conferences both teams belonged to in the season it was played.
 
-The site is fully static. Game results are downloaded ahead of time into `data/seasons/`, one file per season, and the page itself is plain TypeScript with [Alpine.js](https://alpinejs.dev), built with [Bun](https://bun.sh) and hosted on GitHub Pages.
+The site is fully static. Game results are downloaded ahead of time into `data/seasons/`, one file per season, and the page itself is plain TypeScript with [Alpine.js](https://alpinejs.dev), built with [Bun](https://bun.sh) and hosted on GitHub Pages. It's live at [conferencebattle.com](https://conferencebattle.com).
+
+This is a hobby project maintained in spare time. Issues and pull requests are welcome, but responses may be slow; see [CONTRIBUTING.md](CONTRIBUTING.md) before starting on a change.
 
 ## Development
 
@@ -27,3 +29,7 @@ During the season, `.github/workflows/refresh-data.yml` runs every morning. It f
 ## Deployment
 
 Pushing to `main` runs `.github/workflows/deploy.yml`, which typechecks, tests, builds, and publishes `dist/` to GitHub Pages. Pages must be enabled in the repository settings with "GitHub Actions" as the source. Files in `public/`, such as the link preview image, are copied into the build as they are.
+
+## License
+
+The code is released under the [MIT License](LICENSE). The game data in `data/seasons/` comes from [CollegeFootballData.com](https://collegefootballdata.com) and is not covered by that license; it remains subject to CollegeFootballData.com's own terms of use.
