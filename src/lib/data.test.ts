@@ -5,7 +5,7 @@ import { bin, fmtPct } from "./format.ts";
 import { currentSeason } from "./season.ts";
 
 const cfbd = (over: Partial<CfbdGame>): CfbdGame => ({
-  id: 1, season: 2023, seasonType: "regular", startDate: "2023-09-02T19:00:00.000Z", completed: true,
+  id: 1, season: 2023, week: 1, seasonType: "regular", startDate: "2023-09-02T19:00:00.000Z", completed: true,
   homeTeam: "Alabama", homeConference: "SEC", homeClassification: "fbs", homePoints: 30,
   awayTeam: "Texas", awayConference: "Big 12", awayClassification: "fbs", awayPoints: 34,
   ...over,
@@ -14,7 +14,7 @@ const cfbd = (over: Partial<CfbdGame>): CfbdGame => ({
 describe("toSeasonGames", () => {
   test("maps CFBD conference names and keeps the score", () => {
     const [g] = toSeasonGames([cfbd({})]);
-    expect(g).toEqual({ id: 1, date: "2023-09-02", phase: 0, home: "Alabama", homeConf: "SEC", homePts: 30, away: "Texas", awayConf: "B12", awayPts: 34 });
+    expect(g).toEqual({ id: 1, date: "2023-09-02", week: 1, phase: 0, home: "Alabama", homeConf: "SEC", homePts: 30, away: "Texas", awayConf: "B12", awayPts: 34 });
   });
 
   test("groups FCS teams and drops Division II and III opponents", () => {
@@ -44,7 +44,7 @@ describe("toSeasonGames", () => {
 });
 
 const sg = (over: Partial<SeasonGame>): SeasonGame => ({
-  id: 1, date: "2023-09-02", phase: 0, home: "Alabama", homeConf: "SEC", homePts: 30, away: "Texas", awayConf: "B12", awayPts: 34, ...over,
+  id: 1, date: "2023-09-02", week: 1, phase: 0, home: "Alabama", homeConf: "SEC", homePts: 30, away: "Texas", awayConf: "B12", awayPts: 34, ...over,
 });
 
 // Texas beats Alabama as a Big 12 team in 2023, then joins the SEC in 2024.
