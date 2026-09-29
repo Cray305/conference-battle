@@ -5,14 +5,20 @@
 // refreshes data/teams.json, which maps FBS and FCS schools to the CFBD ids
 // their logos are stored under.
 //
+// The data/ directory is gitignored: CollegeFootballData's terms don't allow
+// republishing its data as a standalone dataset, so every checkout and every
+// deploy downloads its own copy.
+//
 // Usage: bun scripts/fetch-games.ts [year | first-last]
 // With no argument it fetches the current season, which runs from August
-// through the January bowls. Requires CFBD_API_KEY (Bun loads .env automatically).
+// through the January bowls, plus any earlier season since FIRST_SEASON that
+// has no file yet. Requires CFBD_API_KEY (Bun loads .env automatically).
 
 import { toScheduledGames, toSeasonGames, type CfbdGame, type Poll, type Schedule } from "../src/lib/data.ts";
 import { currentSeason } from "../src/lib/season.ts";
 
 const API = "https://api.collegefootballdata.com";
+const FIRST_SEASON = 2014;
 
 const key = process.env.CFBD_API_KEY;
 if (!key) {
@@ -20,8 +26,14 @@ if (!key) {
   process.exit(1);
 }
 
-function parseYears(arg: string | undefined): number[] {
-  if (!arg) return [currentSeason()];
+async function parseYears(arg: string | undefined): Promise<number[]> {
+  if (!arg) {
+    const missing: number[] = [];
+    for (let year = FIRST_SEASON; year < currentSeason(); year++) {
+      if (!(await Bun.file(`data/seasons/${year}.json`).exists())) missing.push(year);
+    }
+    return [...missing, currentSeason()];
+  }
   const m = /^(\d{4})(?:-(\d{4}))?$/.exec(arg);
   if (!m) throw new Error(`Expected a year like 2025 or a range like 2014-2025, got "${arg}".`);
   const first = Number(m[1]), last = Number(m[2] ?? m[1]);
@@ -44,7 +56,7 @@ interface CfbdPollWeek { week: number; seasonType: string; polls: { poll: string
 const phase = (seasonType: string): 0 | 1 => (seasonType === "postseason" ? 1 : 0);
 const byWeek = (a: { phase: number; week: number }, b: { phase: number; week: number }) => a.phase - b.phase || a.week - b.week;
 
-for (const year of parseYears(process.argv[2])) {
+for (const year of await parseYears(process.argv[2])) {
   const raw = await get<CfbdGame[]>(`/games?year=${year}&classification=fbs&seasonType=both`);
   const games = toSeasonGames(raw);
   const out = `data/seasons/${year}.json`;
