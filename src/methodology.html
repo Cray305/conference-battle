@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Methodology · Conference Battle</title>
+    <meta name="description" content="How Conference Battle counts games between FBS conferences: membership, postseason, FCS opponents, team rows, and the weekly view." />
+    <script>
+      // Apply a saved theme before first paint so the page doesn't flash.
+      try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+    </script>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./theme.ts"></script>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead method-head">
+        <div class="kicker">
+          <a class="back" href="./">← Conference Battle</a>
+          <svg viewBox="0 0 220 10" preserveAspectRatio="none" aria-hidden="true"><path d="M1 5H219M6 1 1 5l5 4M214 1l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
+          <span class="kicker-end">
+            <button type="button" class="theme" id="theme" aria-label="Switch to dark mode" title="Switch to dark mode">
+              <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7Z" fill="currentColor" /></svg>
+              <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+            </button>
+          </span>
+        </div>
+        <h1>Methodology</h1>
+        <p class="dek">How every record on the site is counted.</p>
+      </header>
+
+      <div class="hatch" aria-hidden="true"></div>
+
+      <section aria-labelledby="grid-h">
+        <div class="section-head"><h2 id="grid-h">Conference records</h2></div>
+        <div class="rules">
+          <div><h3>Membership</h3><p>Each game counts for the conferences both teams belonged to that season. Texas's 2023 games count for the Big 12, and its 2024 games count for the SEC. Switch to current membership to regroup every game by where teams play today.</p></div>
+          <div><h3>Postseason</h3><p>Bowl and College Football Playoff games count and can be filtered on their own. Conference title games are played between members of the same conference, so they never appear.</p></div>
+          <div><h3>FCS</h3><p>Every FCS program is grouped into one opponent. Hide the FCS chip to leave those games out of every total. Games against Division II and III teams aren't counted.</p></div>
+          <div><h3>Independents</h3><p>Notre Dame, UConn, and other independents share one row. Games between two independents aren't counted.</p></div>
+          <div><h3>Results</h3><p>Games count as played on the field. Wins the NCAA later vacated still count, and home, away, and neutral-site games are weighted the same.</p></div>
+          <div><h3>Small samples</h3><p>Matchups with fewer than four games are hatched in the matrix. Treat those records as anecdotes, not trends.</p></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="team-h">
+        <div class="section-head"><h2 id="team-h">Team rows</h2></div>
+        <div class="rules">
+          <div><h3>What counts</h3><p>A pinned team's row includes every game it played in the selected seasons, even across a conference move. Its cell against its own conference is its conference record.</p></div>
+          <div><h3>Opponents</h3><p>The membership setting applies to opponents: each one counts for its conference as of that game, or where it plays today.</p></div>
+          <div><h3>Which teams</h3><p>Any FBS program can be pinned. FCS teams can't, because games between two FCS teams aren't in the data.</p></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="week-h">
+        <div class="section-head"><h2 id="week-h">This week</h2></div>
+        <div class="rules">
+          <div><h3>Weeks</h3><p>Weeks follow the CollegeFootballData calendar and run Monday through Sunday, Pacific time. Only games between teams from different conferences are listed.</p></div>
+          <div><h3>Games to watch</h3><p>Games with an AP-ranked team come first, then games between two Power 4 teams. Ranks come from the AP poll released before that week.</p></div>
+          <div><h3>Upsets</h3><p>A result is an upset when an unranked team beats a ranked one or a lower-ranked team wins. Between two unranked teams, it's an upset when a Group of 5, independent, or FCS team beats a Power 4 team, or an FCS team beats an FBS team.</p></div>
+          <div><h3>Standings</h3><p>Conferences are ranked by their record against other FBS conferences that season, bowls included. Games against FCS teams are shown but don't change the order. Move shows how the latest week changed the order.</p></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="data-h">
+        <div class="section-head"><h2 id="data-h">Data</h2></div>
+        <div class="rules">
+          <div><h3>Source</h3><p>Scores, schedules, AP polls, and team logos come from <a href="https://collegefootballdata.com">CollegeFootballData.com</a>. Team names and logos belong to their schools.</p></div>
+          <div><h3>Updates</h3><p>From August through January the site pulls new results every morning. A game appears once it's final and the next update runs.</p></div>
+          <div><h3>Coverage</h3><p>Every game since 2014 between an FBS team and an FBS or FCS opponent. Games against Division II and III teams are left out.</p></div>
+        </div>
+      </section>
+
+      <div class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <footer>
+        <span>Data: <a href="https://collegefootballdata.com">CollegeFootballData.com</a></span>
+        <span class="foot-links"><a href="./">Back to the site</a><a href="https://github.com/Cray305/conference-battle">Source on GitHub</a></span>
+      </footer>
+    </div>
+  </body>
+</html>

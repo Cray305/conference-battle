@@ -1,7 +1,9 @@
 // Downloads FBS games from the CollegeFootballData API and saves the completed
 // ones to data/seasons/{year}.json, one game per line so diffs stay readable.
 // For the current season it also saves data/schedule.json: the week calendar,
-// the AP polls, and the cross-conference games still to be played.
+// the AP polls, and the cross-conference games still to be played. It also
+// refreshes data/teams.json, which maps FBS and FCS schools to the CFBD ids
+// their logos are stored under.
 //
 // Usage: bun scripts/fetch-games.ts [year | first-last]
 // With no argument it fetches the current season, which runs from August
@@ -35,6 +37,7 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+interface CfbdTeam { id: number; school: string; classification?: string | null; logos?: string[] | null; }
 interface CfbdWeek { week: number; seasonType: string; startDate: string; endDate: string; }
 interface CfbdPollWeek { week: number; seasonType: string; polls: { poll: string; ranks: { rank: number; school: string }[] }[]; }
 
@@ -64,3 +67,9 @@ for (const year of parseYears(process.argv[2])) {
   await Bun.write("data/schedule.json", `${JSON.stringify(schedule, null, 1)}\n`);
   console.log(`Saved ${calendar.length} weeks, ${polls.length} polls, and ${upcoming.length} upcoming games to data/schedule.json`);
 }
+
+const teams = (await get<CfbdTeam[]>("/teams"))
+  .filter((t) => (t.classification === "fbs" || t.classification === "fcs") && t.logos?.length)
+  .sort((a, b) => a.school.localeCompare(b.school));
+await Bun.write("data/teams.json", `{\n${teams.map((t) => `${JSON.stringify(t.school)}:${t.id}`).join(",\n")}\n}\n`);
+console.log(`Saved logo ids for ${teams.length} teams to data/teams.json`);

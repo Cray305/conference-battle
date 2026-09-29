@@ -151,12 +151,14 @@ export interface Dataset {
   games: GameRow[];
   /** The current season's schedule, when data/schedule.json exists. */
   schedule?: Schedule;
+  /** CFBD ids for team logos, by school name, for the teams the page shows. */
+  logos: Record<string, number>;
 }
 export type GameRow = [season: number, phase: Phase, home: number, away: number, homeConf: number, awayConf: number, homePts: number, awayPts: number, week: number];
 
 const CONF_INDEX = new Map(CONFS.map((c, i) => [c.id, i]));
 
-export function buildDataset(seasons: Map<number, SeasonGame[]>, schedule?: Schedule): Dataset {
+export function buildDataset(seasons: Map<number, SeasonGame[]>, schedule?: Schedule, logoIds: Record<string, number> = {}): Dataset {
   const years = [...seasons.keys()].sort((a, b) => a - b);
   if (!years.length) throw new Error("No season data found in data/seasons/. Run `bun run fetch-data` first.");
   const all = years.flatMap((season) => seasons.get(season)!.map((g) => ({ season, g })));
@@ -180,6 +182,9 @@ export function buildDataset(seasons: Map<number, SeasonGame[]>, schedule?: Sche
   // the conference matrix skips them in tally().
   const games = rows.reverse();
 
+  const shown = new Set([...teams, ...(schedule?.upcoming.flatMap((g) => [g.home, g.away]) ?? [])]);
+  const logos = Object.fromEntries(Object.entries(logoIds).filter(([name]) => shown.has(name)));
+
   return {
     first: years[0]!,
     last: years.at(-1)!,
@@ -188,6 +193,7 @@ export function buildDataset(seasons: Map<number, SeasonGame[]>, schedule?: Sche
     current,
     games,
     ...(schedule ? { schedule } : {}),
+    logos,
   };
 }
 
