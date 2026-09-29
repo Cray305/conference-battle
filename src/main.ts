@@ -1,5 +1,6 @@
 import Alpine from "alpinejs";
 import "./theme.ts";
+import { track } from "./lib/analytics.ts";
 import gamesUrl from "./generated/games.json" with { type: "file" };
 import { CONFS, FCS, PRESETS, PRESET_LABELS, type ConfId } from "./lib/conferences.ts";
 import { tally, tallyTeam, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
@@ -57,6 +58,7 @@ Alpine.data("app", () => ({
   presetLabel: (k: PresetKey) => PRESET_LABELS[k],
   name,
   abbr,
+  track,
   fmtPct,
   fmtWL,
   logo(school: string) {
@@ -113,7 +115,7 @@ Alpine.data("app", () => ({
     this.recalc();
     this.readHash();
     this.status = "ready";
-    for (const key of ["from", "to", "phase", "membership"] as const) this.$watch(key, () => this.recalc());
+    for (const key of ["from", "to", "phase", "membership"] as const) this.$watch(key, (v) => { this.recalc(); track(`filter-${key}`, `${key}: ${v}`); });
     this.$watch("visible", () => this.keepSelectionVisible());
     this.$watch("selected", () => this.writeHash());
     this.$watch("team", () => this.writeHash());
@@ -165,7 +167,7 @@ Alpine.data("app", () => ({
   },
   matchTeam() {
     const t = this.findTeam(this.teamQuery);
-    if (t && t.i !== this.team) this.setTeam(t.i);
+    if (t && t.i !== this.team) { this.setTeam(t.i); track(`team-${slug(t.name)}`, t.name); }
     else if (!this.teamQuery.trim() && this.team !== null) this.clearTeam();
   },
   settleTeam() {
@@ -201,12 +203,14 @@ Alpine.data("app", () => ({
   toggleConf(id: ConfId) {
     if (this.isLocked(id)) return;
     this.visible = this.isOn(id) ? this.visible.filter((v) => v !== id) : [...this.visible, id];
+    track("conference-toggle");
   },
   get activePreset(): PresetKey | undefined {
     return this.presets.find((k) => PRESETS[k].length === this.visible.length && PRESETS[k].every((id) => this.visible.includes(id)));
   },
   applyPreset(k: PresetKey) {
     this.visible = [...PRESETS[k]];
+    track(`preset-${k}`, PRESET_LABELS[k]);
   },
   get summary(): string {
     const phase = { all: "All games", reg: "Regular season", post: "Bowls & CFP" }[this.phase];
@@ -231,7 +235,11 @@ Alpine.data("app", () => ({
   },
   select(i: number, j: number) {
     if (i === j || !hasGames(this.r(i, j))) return;
+    if (!this.isSelected(i, j)) this.trackMatchup(i, j);
     this.selected = [i, j];
+  },
+  trackMatchup(i: number, j: number) {
+    track(`matchup-${slug(abbr(i))}-${slug(abbr(j))}`, `${name(i)} vs ${name(j)}`);
   },
   isSelected(i: number, j: number) {
     return this.selected[0] === i && this.selected[1] === j;
@@ -239,9 +247,11 @@ Alpine.data("app", () => ({
   pickA(v: string) {
     const a = Number(v);
     this.selected = [a, this.selected[1] === a ? this.shown.find((k) => k !== a)! : this.selected[1]];
+    this.trackMatchup(...this.selected);
   },
   pickB(v: string) {
     this.selected = [this.selected[0], Number(v)];
+    this.trackMatchup(...this.selected);
   },
   opponentsOf(i: number) {
     return this.shown.filter((k) => k !== i);
@@ -249,6 +259,11 @@ Alpine.data("app", () => ({
 
   // The hash is "sec-b1g" for a conference matchup, "texas.sec" for a team
   // against a conference, or "sec-b1g.texas" with a team pinned elsewhere.
+  openTab(t: "all" | "week") {
+    if (this.tab === t) return;
+    this.tab = t;
+    track(`tab-${t}`);
+  },
   writeHash() {
     if (this.tab === "week") return history.replaceState(null, "", "#week");
     const [a, b] = this.selected;
