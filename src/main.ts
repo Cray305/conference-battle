@@ -4,6 +4,11 @@ import { CONFS, FCS, PRESETS, PRESET_LABELS, type ConfId } from "./lib/conferenc
 import { tally, tallyTeam, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
 import { bin, fmtPct, fmtWL, THIN, winPct } from "./lib/format.ts";
 import { currentSeason } from "./lib/season.ts";
+import {
+  featuredWeek, inWeek, interest, isFeatured, isUpset, lastPlayedWeek, movement, netByConference,
+  nextScheduledWeek, playedInWeek, pollFor, scheduledInWeek, seasonStandings, weekKey,
+} from "./lib/week.ts";
+import type { CalendarWeek, ScheduledGame } from "./lib/data.ts";
 
 type PresetKey = keyof typeof PRESETS;
 type Pair = [number, number];
@@ -23,6 +28,15 @@ const name = (i: number) => (i === TEAM ? teamName : i === FCS ? "FCS" : CONFS[i
 const abbr = (i: number) => (i === TEAM ? teamName : CONFS[i]!.id);
 const slug = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const hasGames = (r: WL) => r.w + r.l > 0;
+const confOf = (id: string) => CONFS.findIndex((c) => c.id === id);
+
+// Week dates follow the CFBD calendar, which splits weeks at midnight Pacific.
+const PT = "America/Los_Angeles";
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: PT });
+const weekTitle = (w: CalendarWeek) => (w.phase ? "Bowl season" : `Week ${w.week}`);
+const weekDates = (w: CalendarWeek) => `${day(w.start)} – ${day(w.end)}`;
+/** How many games a weekly list shows before "Show all". */
+const SLATE = 10;
 
 // Keep logic in typed components registered here; the HTML should only
 // reference their properties and methods, since Alpine attribute
@@ -55,6 +69,10 @@ Alpine.data("app", () => ({
   tipX: 0,
   tipY: 0,
   controlsOpen: false,
+  tab: "all" as "all" | "week",
+  standYear: 0,
+  allNext: false,
+  allLast: false,
   isPhone: phone.matches,
   team: null as number | null,
   teamQuery: "",
@@ -75,6 +93,7 @@ Alpine.data("app", () => ({
     this.last = ds.last;
     this.from = this.to = Math.min(Math.max(currentSeason(), ds.first), ds.last);
     this.lastGame = ds.lastGame;
+    this.standYear = ds.schedule?.season ?? ds.last;
     // FBS programs only: FCS teams' games against each other aren't in the data.
     const fbs = new Set<number>();
     for (const g of ds.games) { if (g[4] !== FCS) fbs.add(g[2]); if (g[5] !== FCS) fbs.add(g[3]); }
@@ -86,6 +105,7 @@ Alpine.data("app", () => ({
     this.$watch("visible", () => this.keepSelectionVisible());
     this.$watch("selected", () => this.writeHash());
     this.$watch("team", () => this.writeHash());
+    this.$watch("tab", () => { this.writeHash(); this.allNext = this.allLast = false; });
     window.addEventListener("hashchange", () => this.readHash());
   },
 
@@ -218,12 +238,15 @@ Alpine.data("app", () => ({
   // The hash is "sec-b1g" for a conference matchup, "texas.sec" for a team
   // against a conference, or "sec-b1g.texas" with a team pinned elsewhere.
   writeHash() {
+    if (this.tab === "week") return history.replaceState(null, "", "#week");
     const [a, b] = this.selected;
     const team = this.team === null ? "" : slug(ds.teams[this.team]!);
     const hash = a === TEAM ? `${team}.${CONFS[b]!.id}` : `${CONFS[a]!.id}-${CONFS[b]!.id}${team && `.${team}`}`;
     history.replaceState(null, "", `#${hash.toLowerCase()}`);
   },
   readHash() {
+    if (location.hash === "#week" && ds.schedule) { this.tab = "week"; return; }
+    if (location.hash.length > 1) this.tab = "all";
     const conf = (id = "") => CONFS.findIndex((c) => c.id === id.toUpperCase());
     const show = (i: number) => { if (!this.isOn(CONFS[i]!.id)) this.visible = [...this.visible, CONFS[i]!.id]; };
     let pair: Pair | undefined, team: number | undefined, opp: number | undefined;
@@ -416,6 +439,107 @@ Alpine.data("app", () => ({
     const oppText = opp.length === PRESETS.fbs.length ? "every other FBS conference"
       : `the other selected conferences (${opp.map((j) => CONFS[j]!.name).join(", ")})`;
     return { rows, fcsOn, note: `Each conference's combined record against ${oppText}${fcsOn ? ", plus FCS teams" : ""}.` };
+  },
+
+  // This week -------------------------------------------------------------
+
+  get weekly() {
+    // Reading status makes this rerun once the data arrives; the tab bar renders before that.
+    if (this.status !== "ready") return null;
+    const sch = ds.schedule;
+    if (!sch?.calendar.length) return null;
+    const now = new Date();
+    const featured = featuredWeek(sch.calendar, now)!;
+    const next = nextScheduledWeek(sch.upcoming, sch.calendar, featured);
+    const last = lastPlayedWeek(ds, sch.season, sch.calendar, featured);
+
+    const upcoming = next ? scheduledInWeek(sch.upcoming, next).map((g) => this.slateGame(g, pollFor(sch.polls, next), now)) : [];
+    upcoming.sort((a, b) => b.score - a.score || a.start.localeCompare(b.start));
+
+    const played = last ? playedInWeek(ds, sch.season, last) : [];
+    const ranks = last ? pollFor(sch.polls, last) : {};
+    const results = played.map((k) => this.resultGame(k, ranks));
+    results.sort((a, b) => Number(b.upset) - Number(a.upset) || b.score - a.score);
+    const net = [...netByConference(ds, played)]
+      .filter(([c]) => c !== FCS)
+      .sort(([, a], [, b]) => b.w - b.l - (a.w - a.l) || b.w - a.w)
+      .map(([c, r]) => ({ id: CONFS[c]!.id, wl: fmtWL(r) }));
+
+    return {
+      season: sch.season,
+      next: next && {
+        title: next === featured ? `${weekTitle(next)}: up next` : `Up next: ${weekTitle(next)}`,
+        label: weekTitle(next),
+        dates: weekDates(next),
+        games: this.allNext ? upcoming : upcoming.slice(0, SLATE),
+        more: upcoming.length > SLATE && !this.allNext ? upcoming.length : 0,
+        featured: upcoming.filter((g) => g.featured).length,
+      },
+      last: last && {
+        title: `${weekTitle(last)} results`,
+        dates: weekDates(last),
+        games: this.allLast ? results : results.slice(0, SLATE),
+        more: results.length > SLATE && !this.allLast ? results.length : 0,
+        net,
+        key: weekKey(last),
+      },
+    };
+  },
+  slateGame(g: ScheduledGame, ranks: Record<string, number>, now: Date) {
+    const hc = confOf(g.homeConf), ac = confOf(g.awayConf);
+    const hr = ranks[g.home], ar = ranks[g.away];
+    const score = interest(hr, ar, hc, ac);
+    const kick = new Date(g.start);
+    const when = kick.getTime() < now.getTime() - 5 * 3600e3 ? "Awaiting score"
+      : g.tbd ? `${kick.toLocaleDateString("en-US", { weekday: "short", timeZone: "America/New_York" })} · TBD`
+      : kick.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }).replace(":00", "");
+    return {
+      id: g.id, start: g.start, when, score, featured: isFeatured(score),
+      away: g.away, awayRank: ar ?? "", home: g.home, homeRank: hr ?? "",
+      at: g.neutral ? "vs" : "at",
+      confs: `${CONFS[ac]!.id} ${g.neutral ? "vs" : "at"} ${CONFS[hc]!.id}`,
+      tag: g.name ?? (hr && ar ? "Top 25" : ""),
+    };
+  },
+  resultGame(k: number, ranks: Record<string, number>) {
+    const [, phase, home, away, hc, ac, hp, ap] = ds.games[k]!;
+    const homeWon = hp > ap;
+    const [w, l, wc, lc] = homeWon ? [home, away, hc, ac] : [away, home, ac, hc];
+    const wName = ds.teams[w]!, lName = ds.teams[l]!;
+    const wr = ranks[wName], lr = ranks[lName];
+    const upset = isUpset(wr, lr, wc, lc);
+    return {
+      k, upset, score: interest(wr, lr, wc, lc),
+      winner: wName, winnerRank: wr ?? "", winnerPts: Math.max(hp, ap),
+      loser: lName, loserRank: lr ?? "", loserPts: Math.min(hp, ap),
+      confs: `${CONFS[wc]!.id} over ${CONFS[lc]!.id}`,
+      tag: upset ? "Upset" : phase === 2 ? "CFP" : phase === 1 ? "Bowl" : "",
+    };
+  },
+  get yearStandings() {
+    const year = this.standYear;
+    const rows = seasonStandings(ds, year);
+    const sch = ds.schedule;
+    const last = sch && year === sch.season ? lastPlayedWeek(ds, year, sch.calendar, featuredWeek(sch.calendar, new Date())!) : undefined;
+    const moves = last ? movement(seasonStandings(ds, year, inWeek(last)), rows) : null;
+    return {
+      moves: !!moves,
+      movesSince: last ? weekTitle(last) : "",
+      rows: rows.map((r, k) => {
+        const m = moves?.get(r.conf) ?? 0;
+        return {
+          rank: k + 1, conf: r.conf, name: CONFS[r.conf]!.name,
+          tier: CONFS[r.conf]!.tier === "Ind" ? "IND" : CONFS[r.conf]!.tier,
+          wl: fmtWL(r.fbs), pct: fmtPct(r.fbs), bar: `${(winPct(r.fbs) * 100).toFixed(1)}%`,
+          post: fmtWL(r.post), fcs: fmtWL(r.fcs),
+          move: m > 0 ? `▲${m}` : m < 0 ? `▼${-m}` : "–",
+          moveLabel: m > 0 ? `Up ${m}` : m < 0 ? `Down ${-m}` : "No change",
+        };
+      }),
+    };
+  },
+  standingsYears(): number[] {
+    return [...this.seasons].reverse();
   },
 
   get updated(): string {

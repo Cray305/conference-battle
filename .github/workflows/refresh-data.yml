@@ -38,7 +38,7 @@ jobs:
       - name: Commit changes
         id: commit
         run: |
-          git add data/seasons
+          git add data
           if git diff --cached --quiet; then
             echo "No new games."
             echo "changed=false" >> "$GITHUB_OUTPUT"

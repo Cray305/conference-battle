@@ -53,7 +53,12 @@
 
       <div class="hatch" aria-hidden="true"></div>
 
-      <div class="controls" :class="{ open: controlsOpen }">
+      <div class="tabs" role="tablist" aria-label="View" x-show="status === 'ready' && weekly" x-cloak>
+        <button type="button" role="tab" :aria-selected="tab === 'all'" @click="tab = 'all'"><span class="tab-name">All games</span><span class="tab-sub" x-text="`${first}–${last} records`"></span></button>
+        <button type="button" role="tab" :aria-selected="tab === 'week'" @click="tab = 'week'"><span class="tab-name">This week</span><span class="tab-sub" x-text="weekly && weekly.next ? weekly.next.label : 'Standings'"></span></button>
+      </div>
+
+      <div class="controls" :class="{ open: controlsOpen }" x-show="tab === 'all'">
         <button type="button" class="controls-toggle" @click="controlsOpen = !controlsOpen" :aria-expanded="controlsOpen" aria-controls="filters confpick">
           <span class="label">Filters</span><span class="sum" x-text="summary"></span>
           <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" /></svg>
@@ -115,7 +120,97 @@
         <p x-show="status === 'error'" x-cloak>The game data didn't load. Refresh the page to try again.</p>
       </div>
 
-      <template x-if="status === 'ready'">
+      <template x-if="status === 'ready' && tab === 'week' && weekly">
+        <div class="weekly">
+          <section aria-labelledby="next-h">
+            <div class="section-head">
+              <h2 id="next-h" x-text="weekly.next ? weekly.next.title : 'Up next'"></h2>
+              <p class="note" x-text="weekly.next ? weekly.next.dates : ''"></p>
+            </div>
+            <template x-if="weekly.next">
+              <div>
+                <p class="note lede">Games between conferences, <span x-text="weekly.next.featured ? 'ranked teams and Power 4 matchups first' : 'in kickoff order'"></span>. AP ranks shown. Times are local.</p>
+                <ol class="slate">
+                  <template x-for="g in weekly.next.games" :key="g.id">
+                    <li :class="{ feat: g.featured }">
+                      <span class="when" x-text="g.when"></span>
+                      <span class="teams">
+                        <span><small class="rk" x-show="g.awayRank" x-text="g.awayRank"></small><span x-text="g.away"></span> <span class="at" x-text="g.at"></span> <small class="rk" x-show="g.homeRank" x-text="g.homeRank"></small><span x-text="g.home"></span></span>
+                        <span class="confs" x-text="g.confs"></span>
+                      </span>
+                      <span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span>
+                    </li>
+                  </template>
+                </ol>
+                <button type="button" class="more" x-show="weekly.next.more" @click="allNext = true" x-text="`Show all ${weekly.next.more} games`"></button>
+              </div>
+            </template>
+            <p class="note" x-show="!weekly.next">No more games between conferences are on the schedule this season. Bowl matchups appear here once they're announced.</p>
+          </section>
+
+          <section aria-labelledby="last-h">
+            <div class="section-head">
+              <h2 id="last-h" x-text="weekly.last ? weekly.last.title : 'Results'"></h2>
+              <p class="note" x-text="weekly.last ? weekly.last.dates : ''"></p>
+            </div>
+            <template x-if="weekly.last">
+              <div>
+                <p class="net" aria-label="Each conference's record for the week">
+                  <template x-for="n in weekly.last.net" :key="n.id"><span><b x-text="n.id"></b> <span x-text="n.wl"></span></span></template>
+                </p>
+                <ol class="slate">
+                  <template x-for="g in weekly.last.games" :key="g.k">
+                    <li>
+                      <span class="when" x-text="g.confs"></span>
+                      <span class="teams">
+                        <span><small class="rk" x-show="g.winnerRank" x-text="g.winnerRank"></small><b x-text="`${g.winner} ${g.winnerPts}`"></b>, <small class="rk" x-show="g.loserRank" x-text="g.loserRank"></small><span class="l" x-text="`${g.loser} ${g.loserPts}`"></span></span>
+                      </span>
+                      <span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span>
+                    </li>
+                  </template>
+                </ol>
+                <button type="button" class="more" x-show="weekly.last.more" @click="allLast = true" x-text="`Show all ${weekly.last.more} games`"></button>
+              </div>
+            </template>
+            <p class="note" x-show="!weekly.last">No games between conferences have been played yet this season.</p>
+          </section>
+
+          <section class="wk-stand" aria-labelledby="yr-h">
+            <div class="section-head">
+              <h2 id="yr-h">Conference standings</h2>
+              <label class="yr-pick"><span class="label">Season</span>
+                <select x-model.number="standYear">
+                  <template x-for="y in standingsYears()" :key="y"><option :value="y" :selected="y === standYear" x-text="y"></option></template>
+                </select>
+              </label>
+            </div>
+            <p class="note lede">Ranked by record against other FBS conferences<span x-show="yearStandings.moves" x-text="`, and Move shows how ${yearStandings.movesSince} changed the order`"></span>. Games against FCS teams are listed but don't change the order.</p>
+            <div class="standings-scroll">
+              <table class="standings">
+                <thead>
+                  <tr><th>#</th><th>Conference</th><th x-show="yearStandings.moves">Move</th><th>vs FBS</th><th>Pct</th><th></th><th>Bowls/CFP</th><th>vs FCS</th></tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in yearStandings.rows" :key="row.conf">
+                    <tr>
+                      <td class="rk" x-text="row.rank"></td>
+                      <td class="name"><span x-text="row.name"></span><small x-text="row.tier"></small></td>
+                      <td class="mv" x-show="yearStandings.moves" :aria-label="row.moveLabel" x-text="row.move"></td>
+                      <td x-text="row.wl"></td>
+                      <td x-text="row.pct"></td>
+                      <td class="barcell"><div class="pctbar" role="img" :aria-label="`Win percentage ${row.pct}`"><i :style="{ width: row.bar }"></i></div></td>
+                      <td x-text="row.post"></td>
+                      <td x-text="row.fcs"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </template>
+
+      <template x-if="status === 'ready' && tab === 'all'">
         <div class="board">
           <div class="picker">
             <label><span class="label">Conference</span>
@@ -226,7 +321,7 @@
         </div>
       </template>
 
-      <template x-if="status === 'ready'">
+      <template x-if="status === 'ready' && tab === 'all'">
         <section aria-labelledby="stand-h">
           <div class="section-head">
             <h2 id="stand-h">Non-conference standings</h2>
