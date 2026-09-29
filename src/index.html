@@ -83,6 +83,7 @@
           </fieldset>
           <label class="field"><span class="label">Team</span>
             <span class="teambox">
+              <span class="lg" x-show="team !== null" x-html="team !== null ? logo(teamQuery) : ''"></span>
               <input type="text" list="team-list" placeholder="Add a team" autocomplete="off" spellcheck="false"
                 x-model="teamQuery" @input="matchTeam()" @change="settleTeam()" @keydown.enter.prevent="settleTeam()" />
               <button type="button" x-show="team !== null" x-cloak @click="clearTeam()" aria-label="Remove team" title="Remove team">×</button>
@@ -135,7 +136,7 @@
                     <li :class="{ feat: g.featured }">
                       <span class="when" x-text="g.when"></span>
                       <span class="teams">
-                        <span><small class="rk" x-show="g.awayRank" x-text="g.awayRank"></small><span x-text="g.away"></span> <span class="at" x-text="g.at"></span> <small class="rk" x-show="g.homeRank" x-text="g.homeRank"></small><span x-text="g.home"></span></span>
+                        <span class="matchup"><span class="side"><span class="lg" x-html="logo(g.away)"></span><small class="rk" x-show="g.awayRank" x-text="g.awayRank"></small><span x-text="g.away"></span></span> <span class="at" x-text="g.at"></span> <span class="side"><span class="lg" x-html="logo(g.home)"></span><small class="rk" x-show="g.homeRank" x-text="g.homeRank"></small><span x-text="g.home"></span></span></span>
                         <span class="confs" x-text="g.confs"></span>
                       </span>
                       <span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span>
@@ -163,7 +164,7 @@
                     <li>
                       <span class="when" x-text="g.confs"></span>
                       <span class="teams">
-                        <span><small class="rk" x-show="g.winnerRank" x-text="g.winnerRank"></small><b x-text="`${g.winner} ${g.winnerPts}`"></b>, <small class="rk" x-show="g.loserRank" x-text="g.loserRank"></small><span class="l" x-text="`${g.loser} ${g.loserPts}`"></span></span>
+                        <span class="matchup"><span class="side"><span class="lg" x-html="logo(g.winner)"></span><small class="rk" x-show="g.winnerRank" x-text="g.winnerRank"></small><b x-text="`${g.winner} ${g.winnerPts}`"></b></span><span class="sep">,</span> <span class="side"><span class="lg" x-html="logo(g.loser)"></span><small class="rk" x-show="g.loserRank" x-text="g.loserRank"></small><span class="l" x-text="`${g.loser} ${g.loserPts}`"></span></span></span>
                       </span>
                       <span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span>
                     </li>
@@ -246,7 +247,7 @@
                   <template x-for="i in rows" :key="i">
                     <tr :class="{ 'team-row': i === TEAM }">
                       <th scope="row" :class="rowHeadClass(i)">
-                        <button type="button" class="rowbtn" :tabindex="isPhone ? 0 : -1" @click="openFocus(i)"><span class="full" x-text="rowLabel(i)"></span><span class="abbr" x-text="abbr(i)"></span></button>
+                        <button type="button" class="rowbtn" :tabindex="isPhone ? 0 : -1" @click="openFocus(i)"><span class="lg" x-show="i === TEAM" x-html="i === TEAM ? logo(name(i)) : ''"></span><span class="full" x-text="rowLabel(i)"></span><span class="abbr" x-text="abbr(i)"></span></button>
                         <small x-text="rowTotal(i)"></small>
                       </th>
                       <template x-for="j in shown" :key="j">
@@ -296,7 +297,7 @@
 
           <aside class="panel" id="detail" aria-live="polite">
             <div class="label"><span>Selected matchup</span><span x-text="detail.range"></span></div>
-            <h3 class="versus"><span x-text="detail.a"></span><svg viewBox="0 0 38 10" aria-label="versus"><path d="M1 5H37M5 1 1 5l4 4M33 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg><span x-text="detail.b"></span></h3>
+            <h3 class="versus"><span class="side"><span class="lg" x-show="detail.team" x-html="detail.team ? logo(detail.a) : ''"></span><span x-text="detail.a"></span></span><svg viewBox="0 0 38 10" aria-label="versus"><path d="M1 5H37M5 1 1 5l4 4M33 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg><span x-text="detail.b"></span></h3>
             <div class="bigrec"><strong x-text="detail.wl"></strong><em x-text="detail.pct"></em></div>
             <div class="tug" aria-hidden="true">
               <div class="tug-bar"><i class="w" :style="{ width: detail.tug }"></i><i class="l"></i></div>
@@ -312,7 +313,7 @@
               <span class="label">Most recent meetings</span>
               <ol>
                 <template x-for="g in detail.recent" :key="g.k">
-                  <li><span class="yr" x-text="g.year"></span><span><span class="w" x-text="g.winner"></span>, <span class="l" x-text="g.loser"></span></span><span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span></li>
+                  <li><span class="yr" x-text="g.year"></span><span class="matchup"><span class="side"><span class="lg" x-html="logo(g.winnerName)"></span><span class="w" x-text="g.winner"></span></span><span class="sep">,</span> <span class="side"><span class="lg" x-html="logo(g.loserName)"></span><span class="l" x-text="g.loser"></span></span></span><span><span class="tag" x-show="g.tag" x-text="g.tag"></span></span></li>
                 </template>
                 <li x-show="!detail.recent.length"><span></span><span class="l">No games</span><span></span></li>
               </ol>
@@ -351,22 +352,10 @@
         </section>
       </template>
 
-      <section aria-labelledby="rules-h">
-        <div class="section-head"><h2 id="rules-h">How we count</h2></div>
-        <div class="rules">
-          <div><h3>Membership</h3><p>Each game counts for the conferences both teams belonged to that season. Texas's 2023 games count for the Big 12, and its 2024 games count for the SEC. Switch to current membership to regroup every game by where teams play today.</p></div>
-          <div><h3>Postseason</h3><p>Bowl and College Football Playoff games count and can be filtered on their own. Conference title games are played between members of the same conference, so they never appear.</p></div>
-          <div><h3>FCS</h3><p>Every FCS program is grouped into one opponent. Hide the FCS chip to leave those games out of every total. Games against Division II and III teams aren't counted.</p></div>
-          <div><h3>Independents</h3><p>Notre Dame, UConn, and other independents share one row. Games between two independents aren't counted.</p></div>
-          <div><h3>Results</h3><p>Games count as played on the field. Wins the NCAA later vacated still count, and home, away, and neutral-site games are weighted the same.</p></div>
-          <div><h3>Small samples</h3><p>Matchups with fewer than four games are hatched in the matrix. Treat those records as anecdotes, not trends.</p></div>
-        </div>
-      </section>
-
       <div class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <footer>
         <span>Data: <a href="https://collegefootballdata.com">CollegeFootballData.com</a>, <span x-text="first && `${first}–${last}`"></span> seasons</span>
-        <a href="https://github.com/Cray305/conference-battle">Source on GitHub</a>
+        <span class="foot-links"><a href="./methodology.html">Methodology</a><a href="https://github.com/Cray305/conference-battle">Source on GitHub</a></span>
       </footer>
 
       <div class="tip" x-ref="tip" x-show="tip" x-cloak :style="{ left: `${tipX}px`, top: `${tipY}px` }">

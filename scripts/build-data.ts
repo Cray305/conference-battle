@@ -13,7 +13,10 @@ for await (const path of new Glob("data/seasons/*.json").scan(".")) {
 const scheduleFile = Bun.file("data/schedule.json");
 const schedule: Schedule | undefined = (await scheduleFile.exists()) ? await scheduleFile.json() : undefined;
 
-const ds = buildDataset(seasons, schedule);
+const teamsFile = Bun.file("data/teams.json");
+const logoIds: Record<string, number> = (await teamsFile.exists()) ? await teamsFile.json() : {};
+
+const ds = buildDataset(seasons, schedule, logoIds);
 const out = "src/generated/games.json";
 await Bun.write(out, JSON.stringify(ds));
 console.log(`Wrote ${ds.games.length} games from ${ds.first}–${ds.last} (last game ${ds.lastGame}) to ${out}`);

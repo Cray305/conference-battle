@@ -1,4 +1,5 @@
 import Alpine from "alpinejs";
+import "./theme.ts";
 import gamesUrl from "./generated/games.json" with { type: "file" };
 import { CONFS, FCS, PRESETS, PRESET_LABELS, type ConfId } from "./lib/conferences.ts";
 import { tally, tallyTeam, type Dataset, type Filters, type GameRow, type Rec, type WL } from "./lib/data.ts";
@@ -35,6 +36,13 @@ const PT = "America/Los_Angeles";
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: PT });
 const weekTitle = (w: CalendarWeek) => (w.phase ? "Bowl season" : `Week ${w.week}`);
 const weekDates = (w: CalendarWeek) => `${day(w.start)} – ${day(w.end)}`;
+// Team logos come from CollegeFootballData's CDN, with a second version for dark
+// backgrounds. CSS shows the one that matches the theme; hidden lazy images
+// don't download. A logo that fails to load removes itself.
+const LOGO_CDN = "https://cdn.collegefootballdata.com";
+const logoImg = (dir: string, id: number, cls: string) =>
+  `<img class="${cls}" src="${LOGO_CDN}/${dir}/48/${id}.png" alt="" width="20" height="20" loading="lazy" decoding="async" onerror="this.remove()">`;
+
 /** How many games a weekly list shows before "Show all". */
 const SLATE = 10;
 
@@ -51,6 +59,10 @@ Alpine.data("app", () => ({
   abbr,
   fmtPct,
   fmtWL,
+  logo(school: string) {
+    const id = ds?.logos[school];
+    return id ? logoImg("logos", id, "lg-l") + logoImg("logos-dark", id, "lg-d") : "";
+  },
 
   status: "loading" as "loading" | "ready" | "error",
   rev: 0,
@@ -398,7 +410,7 @@ Alpine.data("app", () => ({
     const last5 = x.games.slice(0, 5), w5 = last5.filter(rowWon).length;
     const f = this.filters();
     return {
-      a: name(i), b: name(j), aId: abbr(i), bId: abbr(j),
+      a: name(i), b: name(j), aId: abbr(i), bId: abbr(j), team: i === TEAM,
       range: f.from === f.to ? `${f.from}` : `${f.from}–${f.to}`,
       wl: fmtWL(x), pct: fmtPct(x),
       tug: `${n ? winPct(x) * 100 : 50}%`,
@@ -411,11 +423,13 @@ Alpine.data("app", () => ({
   meeting(g: GameRow, k: number) {
     const [season, phase, home, away, , , hp, ap] = g;
     const homeWon = hp > ap;
+    const winnerName = ds.teams[homeWon ? home : away]!, loserName = ds.teams[homeWon ? away : home]!;
     return {
       k,
       year: season,
-      winner: `${ds.teams[homeWon ? home : away]} ${Math.max(hp, ap)}`,
-      loser: `${ds.teams[homeWon ? away : home]} ${Math.min(hp, ap)}`,
+      winnerName, loserName,
+      winner: `${winnerName} ${Math.max(hp, ap)}`,
+      loser: `${loserName} ${Math.min(hp, ap)}`,
       tag: phase === 2 ? "CFP" : phase === 1 ? "Bowl" : "",
     };
   },
@@ -548,24 +562,5 @@ Alpine.data("app", () => ({
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   },
 }));
-
-// The theme toggle flips whichever theme is showing, whether it came from a
-// saved choice or the system setting, and remembers the choice.
-const darkQuery = matchMedia("(prefers-color-scheme: dark)");
-const themeButton = document.getElementById("theme")!;
-const isDark = () => (document.documentElement.dataset.theme ?? (darkQuery.matches ? "dark" : "light")) === "dark";
-const labelTheme = () => {
-  const label = isDark() ? "Switch to light mode" : "Switch to dark mode";
-  themeButton.setAttribute("aria-label", label);
-  themeButton.title = label;
-};
-themeButton.addEventListener("click", () => {
-  const next = isDark() ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem("theme", next); } catch {}
-  labelTheme();
-});
-darkQuery.addEventListener("change", labelTheme);
-labelTheme();
 
 Alpine.start();
