@@ -1,3 +1,5 @@
+import { track } from "./lib/analytics.ts";
+
 // The theme toggle flips whichever theme is showing, whether it came from a
 // saved choice or the system setting, and remembers the choice.
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
@@ -13,6 +15,7 @@ themeButton.addEventListener("click", () => {
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem("theme", next); } catch {}
   labelTheme();
+  track(`theme-${next}`);
 });
 darkQuery.addEventListener("change", labelTheme);
 labelTheme();

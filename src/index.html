@@ -23,11 +23,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./main.ts"></script>
-    <!--
-      GoatCounter analytics. Sign up at https://www.goatcounter.com, then
-      replace CODE with your site code and uncomment.
-      <script data-goatcounter="https://CODE.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
-    -->
+    <script data-goatcounter="https://conferencebattle.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
   </head>
   <body>
     <div class="wrap" x-data="app">
@@ -54,8 +50,8 @@
       <div class="hatch" aria-hidden="true"></div>
 
       <div class="tabs" role="tablist" aria-label="View" x-show="status === 'ready' && weekly" x-cloak>
-        <button type="button" role="tab" :aria-selected="tab === 'all'" @click="tab = 'all'"><span class="tab-name">All games</span><span class="tab-sub" x-text="`${first}–${last} records`"></span></button>
-        <button type="button" role="tab" :aria-selected="tab === 'week'" @click="tab = 'week'"><span class="tab-name">This week</span><span class="tab-sub" x-text="weekly && weekly.next ? weekly.next.label : 'Standings'"></span></button>
+        <button type="button" role="tab" :aria-selected="tab === 'all'" @click="openTab('all')"><span class="tab-name">All games</span><span class="tab-sub" x-text="`${first}–${last} records`"></span></button>
+        <button type="button" role="tab" :aria-selected="tab === 'week'" @click="openTab('week')"><span class="tab-name">This week</span><span class="tab-sub" x-text="weekly && weekly.next ? weekly.next.label : 'Standings'"></span></button>
       </div>
 
       <div class="controls" :class="{ open: controlsOpen }" x-show="tab === 'all'">
@@ -143,7 +139,7 @@
                     </li>
                   </template>
                 </ol>
-                <button type="button" class="more" x-show="weekly.next.more" @click="allNext = true" x-text="`Show all ${weekly.next.more} games`"></button>
+                <button type="button" class="more" x-show="weekly.next.more" @click="allNext = true; track('show-all-upcoming')" x-text="`Show all ${weekly.next.more} games`"></button>
               </div>
             </template>
             <p class="note" x-show="!weekly.next">No more games between conferences are on the schedule this season. Bowl matchups appear here once they're announced.</p>
@@ -170,7 +166,7 @@
                     </li>
                   </template>
                 </ol>
-                <button type="button" class="more" x-show="weekly.last.more" @click="allLast = true" x-text="`Show all ${weekly.last.more} games`"></button>
+                <button type="button" class="more" x-show="weekly.last.more" @click="allLast = true; track('show-all-results')" x-text="`Show all ${weekly.last.more} games`"></button>
               </div>
             </template>
             <p class="note" x-show="!weekly.last">No games between conferences have been played yet this season.</p>
