@@ -1,14 +1,26 @@
 name: Deploy to GitHub Pages
 
+# Builds the site with fresh game data from CollegeFootballData and publishes
+# it. Runs on every push to main and every morning during the season. Run it by
+# hand with a season or range to refetch those seasons, for example after
+# CollegeFootballData corrects an old score.
 on:
   push:
     branches: [main]
+  schedule:
+    # Every day at 12:00 UTC, August through January.
+    - cron: "0 12 * 8-12,1 *"
   workflow_dispatch:
+    inputs:
+      seasons:
+        description: "A season (2025) or range (2014-2026) to refetch. Leave blank to fetch only the current season and any missing ones."
+        required: false
 
 permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: pages
@@ -21,12 +33,34 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      # Past seasons rarely change, so keep them in the Actions cache rather
+      # than downloading all of them on every build. Each run saves a new
+      # cache entry and restores the most recent one.
+      - uses: actions/cache@v4
+        with:
+          path: data/seasons
+          key: cfbd-seasons-${{ github.run_id }}
+          restore-keys: cfbd-seasons-
+      - name: Fetch games
+        run: bun run fetch-data $SEASONS
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          SEASONS: ${{ inputs.seasons }}
       - run: bun run typecheck
       - run: bun test
       - run: bun run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # GitHub disables scheduled workflows after 60 days without repository
+      # activity. The data used to arrive as commits, which counted; now it
+      # doesn't, so re-enable the workflow on each scheduled run to keep the
+      # daily updates going through a quiet stretch.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        run: gh workflow enable deploy.yml --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   deploy:
     needs: build
